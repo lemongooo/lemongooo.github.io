@@ -6,7 +6,7 @@ tags:
   - logi option+
   - mac软件
 language: '中文'
-heroImage: { src: './thumbnail.jpg', color: '#9698C1' }
+heroImage: { color: '#656ce2ff' }
 ---
 很久没用无线鼠标了，昨天翻出来了anywhere3准备重新用起来，结果发现软件一直加载打不开，卸载了再重装也没办法，于是搜了一些资料最后终于解决了，在这里总结一下
 
@@ -19,13 +19,12 @@ heroImage: { src: './thumbnail.jpg', color: '#9698C1' }
 ## 第二关：Backend connection problem
 另外一个老生常谈的问题，搜了下发现百分之九十都是这个问题，不敢相信这么多年过去了罗技竟然还没有修复这个bug
 **解决方法：**
-```markdown
 - 1 先根据这个路径`/Library/Application Support/Logitech`，找到**LogiOptionPlus**文件夹，然后删除整个文件夹
 ![alt text](./image.png)
 
 - 2 接着用腾讯柠檬把option+卸载
 
 - 3 重新安装option+，并且再次检查一下开机启动项配置是否正确
-```
+
 折腾了这么久，终于成功打开！
 ![alt text](./option.png)
