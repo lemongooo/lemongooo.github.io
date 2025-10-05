@@ -1,8 +1,4 @@
-import type { CardListData, Config, IntegrationUserConfig, ThemeUserConfig } from 'astro-pure/types';
-
-
-
-
+import type { CardListData, Config, IntegrationUserConfig, ThemeUserConfig } from 'astro-pure/types'
 
 export const theme: ThemeUserConfig = {
   // === Basic configuration ===
@@ -19,7 +15,7 @@ export const theme: ThemeUserConfig = {
     lang: 'zh-CN',
     attrs: 'zh-CN',
     // Date locale
-    dateLocale: 'zh_CN',
+    dateLocale: 'zh-CN',
     dateOptions: {
       day: 'numeric',
       month: 'short',
