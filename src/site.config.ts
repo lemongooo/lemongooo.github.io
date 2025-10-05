@@ -1,4 +1,8 @@
-import type { CardListData, Config, IntegrationUserConfig, ThemeUserConfig } from 'astro-pure/types'
+import type { CardListData, Config, IntegrationUserConfig, ThemeUserConfig } from 'astro-pure/types';
+
+
+
+
 
 export const theme: ThemeUserConfig = {
   // === Basic configuration ===
@@ -24,7 +28,7 @@ export const theme: ThemeUserConfig = {
   },
   /** Set a logo image to show in the homepage. */
   logo: {
-    src: 'src/assets/avatar.png',
+    src: 'src/assets/lemonade.png',
     alt: 'Avatar'
   },
 
