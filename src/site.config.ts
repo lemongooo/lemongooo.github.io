@@ -54,6 +54,7 @@ export const theme: ThemeUserConfig = {
       { title: 'Blog', link: '/blog' },
       { title: 'Projects', link: '/projects' },
       { title: 'Links', link: '/links' },
+      { title: 'Gallery', link: 'https://photo-gallery-lemongooo.vercel.app/' },
       { title: 'About', link: '/about' }
     ]
   },
