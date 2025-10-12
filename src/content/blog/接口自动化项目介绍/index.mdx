@@ -8,7 +8,6 @@ tags:
 language: '中文'
 heroImage: { src: './heroimage.png', color: '#ffc4c0ff' }
 ---
-
 # 电商平台接口自动化测试框架实战
 
 ## 📋 项目介绍
@@ -89,28 +88,35 @@ automaticAPI/
 
 ### POM架构设计
 
-```mermaid
-graph TB
-    A[测试用例层<br/>test_*.py] -->|调用| B[驱动层<br/>RequestBase]
-    B -->|读取| C[数据层<br/>YAML配置]
-    B -->|动态替换| D[辅助函数<br/>DebugTalk]
-    B -->|发送请求| E[请求封装<br/>SendRequest]
-    E -->|HTTP| F[服务器接口]
-    F -->|响应| G[结果处理]
-    G -->|参数提取| H[extract.yaml]
-    G -->|断言验证| I[Assertions]
-    I -->|生成| J[Allure报告]
-    H -->|参数依赖| D
-    
-    style A fill:#e1f5ff
-    style B fill:#fff3cd
-    style J fill:#d4edda
+**架构流程:**
+
+```
+测试用例层 (test_*.py)
+    ↓ 调用
+驱动层 (RequestBase)
+    ↓ 读取
+数据层 (YAML配置)
+    ↓ 动态替换
+辅助函数 (DebugTalk)
+    ↓ 发送请求
+请求封装 (SendRequest)
+    ↓ HTTP请求
+服务器接口
+    ↓ 响应处理
+结果处理
+    ├─ 参数提取 → extract.yaml
+    └─ 断言验证 → Assertions
+           ↓
+    Allure测试报告
 ```
 
-**设计思路说明:**
-- **用例层**: 定义测试场景和执行流程,专注业务逻辑
-- **驱动层**: 封装请求处理和断言逻辑,提升复用性
-- **数据层**: YAML存储测试数据,实现用例与参数分离
+**三层架构说明:**
+
+| 层级 | 文件/类 | 职责 | 优势 |
+|-----|---------|------|------|
+| **用例层** | test_debug_api.py<br/>test_productList.py | 定义测试场景和执行流程 | 专注业务逻辑,易于维护 |
+| **驱动层** | apiutil.py<br/>RequestBase类 | 封装请求、断言、参数替换 | 统一处理,代码复用 |
+| **数据层** | addUser.yaml<br/>commitOrder.yaml | 存储接口配置和测试数据 | 用例与数据分离,易扩展 |
 
 ---
 
@@ -122,36 +128,31 @@ graph TB
 pip install -r requirements.txt
 ```
 
-### 2. 核心依赖
+### 2. 核心依赖清单
 
-```text
-pytest==7.0+          # 测试框架
-allure-pytest         # 报告生成
-requests              # HTTP请求
-PyYAML                # YAML解析
-jsonpath              # JSON提取
-PyMySQL               # MySQL操作
-SQLAlchemy            # ORM框架
-faker                 # 测试数据生成
-```
+核心依赖包:
+
+- **pytest** - 测试框架
+- **allure-pytest** - 报告生成
+- **requests** - HTTP请求
+- **PyYAML** - YAML解析
+- **jsonpath** - JSON提取
+- **PyMySQL** - MySQL操作
+- **SQLAlchemy** - ORM框架
+- **faker** - 测试数据生成
 
 ### 3. Pytest配置
 
-```ini:pytest.ini
+```ini
 [pytest]
-# 测试文件命名规则
 python_files = test_*.py
-
-# 测试类命名规则
 python_classes = Test*
-
-# 测试方法命名规则
 python_functions = test
 ```
 
 ### 4. 环境配置
 
-```ini:config.ini
+```ini
 [api_envi]
 host = http://127.0.0.1:8787
 
@@ -195,7 +196,7 @@ database = testdb
 
 #### 实战案例1: 用户管理
 
-```yaml:addUser.yaml
+```yaml
 - baseInfo:
     api_name: 新增用户
     url: /dar/user/addUser
@@ -236,7 +237,7 @@ database = testdb
 
 #### 实战案例2: 电商下单流程
 
-```yaml:commitOrder.yaml
+```yaml
 - baseInfo:
     api_name: 提交订单
     url: /coupApply/cms/placeAnOrder
@@ -265,7 +266,7 @@ database = testdb
         userId: $.userId
 ```
 
-```yaml:orderPay.yaml
+```yaml
 - baseInfo:
     api_name: 订单支付
     url: /coupApply/cms/orderPay
@@ -317,7 +318,7 @@ json:
 
 #### 核心代码实现
 
-```python:apiutil.py
+```python
 class RequestBase:
     """请求基础类 - 驱动层核心"""
     
@@ -385,7 +386,7 @@ class RequestBase:
 
 #### 断言实现
 
-```python:assertions.py
+```python
 class Assertions:
     """断言引擎"""
     
@@ -454,28 +455,26 @@ class Assertions:
 
 #### 断言执行流程
 
-```mermaid
-graph LR
-    A[接口响应] --> B{解析validation配置}
-    B --> C[遍历断言列表]
-    C --> D{断言类型?}
-    
-    D -->|contains| E[contains_assert]
-    D -->|eq| F[equal_assert]
-    D -->|ne| G[not_equal_assert]
-    D -->|db| H[assert_mysql_data]
-    
-    E --> I[累计失败标记flag]
-    F --> I
-    G --> I
-    H --> I
-    
-    I --> J{flag == 0?}
-    J -->|是| K[断言成功]
-    J -->|否| L[断言失败<br/>抛出异常]
-    
-    style K fill:#d4edda
-    style L fill:#f8d7da
+**流程说明:**
+
+```
+接口响应
+  ↓
+解析 validation 配置
+  ↓
+遍历断言列表
+  ↓
+判断断言类型
+  ├─ contains → 包含断言
+  ├─ eq → 相等断言
+  ├─ ne → 不相等断言
+  └─ db → 数据库断言
+       ↓
+累计失败标记 flag
+  ↓
+flag == 0 ?
+  ├─ 是 → ✅ 断言成功
+  └─ 否 → ❌ 断言失败(抛出异常)
 ```
 
 ---
@@ -484,7 +483,7 @@ graph LR
 
 #### 辅助函数库
 
-```python:debugtalk.py
+```python
 import time
 import random
 from faker import Faker
@@ -580,7 +579,7 @@ testCase:
 
 ### 5. 请求统一封装
 
-```python:sendrequest.py
+```python
 import requests
 import allure
 from common.recordlog import logs
@@ -655,7 +654,7 @@ class SendRequest:
 
 ### 1. 用户管理模块
 
-```python:test_debug_api.py
+```python
 import allure
 import pytest
 from common.readyaml import get_testcase_yaml
@@ -704,7 +703,7 @@ class TestUserManager:
 
 ### 2. 商品下单全流程
 
-```python:test_productList.py
+```python
 import allure
 import pytest
 from base.apiutil import RequestBase
@@ -803,7 +802,7 @@ allure serve ./report/temp
 
 #### 环境配置
 
-```xml:environment.xml
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <qa:environment xmlns:qa="urn:qatools:allure:environment">
     <n>测试环境</n>
