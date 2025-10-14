@@ -1,5 +1,5 @@
 ---
-title: 商城接口自动化项目介绍（架构+测试用例+测试报告）
+title: 初光商城接口自动化项目介绍
 description: '基于pytest框架的接口自动化项目介绍.'
 publishDate: 2025-10-09
 tags:
@@ -8,8 +8,7 @@ tags:
 language: '中文'
 heroImage: { src: './heroimage.png', color: '#ffc4c0ff' }
 ---
-# 电商平台接口自动化测试框架实战
-# 接口自动化测试框架架构介绍
+# 初光商城接口自动化测试框架架构介绍
 
 ## 一、项目介绍
 
@@ -17,9 +16,9 @@ heroImage: { src: './heroimage.png', color: '#ffc4c0ff' }
 
 本框架采用**分层设计思想**，将整个测试框架划分为工具层、数据层、逻辑层、配置层、用例层五个层次，各层职责明确、互不耦合。框架使用 Python 语言搭建，基于 pytest 测试框架进行扩展，对 request 接口请求、yaml 配置、json 数据读取、pymysql 数据操作等模块进行封装。
 
-其中，**pymysql** 来连接 mysql 数据库，执行 sql 数据，进行数据校验；**request** 请求库，来向接口发起请求；**yaml** 文件管理全局配置；**assert** 断言对接口进行验证；**allure** 生成测试报告；**fixture** 进行登录管理。
+其中，**pymysql** 来连接 mysql 数据库，执行 sql 数据，进行数据校验；**request** 请求库，来向接口发起请求；**yaml** 文件管理全局配置；**assert** 断言对接口进行验证；**allure** 生成测试报告；**fixture** 进行前后置管理。
 
-另外，这个框架还支持多种请求方式和传参方式，以及支持多环境切换，使用 Jenkins 来实现持续集成。
+另外，这个框架还支持多种请求方式和传参方式，以及支持多环境切换，使用Jenkins来实现持续集成。
 
 ---
 
