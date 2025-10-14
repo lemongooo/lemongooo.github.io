@@ -9,148 +9,632 @@ language: '中文'
 heroImage: { src: './heroimage.png', color: '#ffc4c0ff' }
 ---
 # 电商平台接口自动化测试框架实战
+# 接口自动化测试框架架构介绍
 
-## 📋 项目介绍
+## 一、项目介绍
 
-该项目是一个**在线购物商城网站**的接口自动化测试框架,覆盖用户注册、登录、商品管理、下单、支付等核心功能。采用 **Python + Pytest + YAML** 技术栈,实现了数据驱动测试、接口参数关联、多种断言模式等企业级特性。
+基于 **Python + Pytest + Requests + Allure + YAML + JSONPath + PyMySQL** 搭建的接口自动化测试框架。
 
-### 核心特性
+本框架采用**分层设计思想**，将整个测试框架划分为工具层、数据层、逻辑层、配置层、用例层五个层次，各层职责明确、互不耦合。框架使用 Python 语言搭建，基于 pytest 测试框架进行扩展，对 request 接口请求、yaml 配置、json 数据读取、pymysql 数据操作等模块进行封装。
 
-- ✅ **数据驱动测试** - YAML配置与代码分离,实现用例解耦
-- ✅ **接口参数关联** - 自动提取和传递接口间依赖参数
-- ✅ **多维度断言** - 支持响应断言、状态码断言、数据库断言
-- ✅ **POM设计模式** - 分离用例层与驱动层,提升可维护性
-- ✅ **全流程测试** - 支持用户管理、商品下单完整业务场景
-- ✅ **可视化报告** - 集成 Allure 生成详细测试报告
+其中，**pymysql** 来连接 mysql 数据库，执行 sql 数据，进行数据校验；**request** 请求库，来向接口发起请求；**yaml** 文件管理全局配置；**assert** 断言对接口进行验证；**allure** 生成测试报告；**fixture** 进行登录管理。
 
-### 技术栈
+另外，这个框架还支持多种请求方式和传参方式，以及支持多环境切换，使用 Jenkins 来实现持续集成。
 
-```text
-测试框架: Pytest
-请求库: Requests
-数据驱动: YAML + Parametrize
-断言引擎: 自定义多模式断言
-数据库: SQLAlchemy + PyMySQL
-报告工具: Allure
-持续集成: Jenkins + Linux
-数据提取: JSONPath + 正则表达式
+---
+
+## 二、框架分层设计
+
+### 2.1 整体架构图
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      启动层 (run.py)                         │
+│              pytest.main() 执行测试并生成报告                  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    用例层 (testcases/)                       │
+│         测试用例执行层，存放所有的测试用例类                      │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                  Fixture 配置层 (conftest.py)                │
+│         前置后置处理，登录管理、数据初始化与清理                   │ 
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                       逻辑层 (base/)                         │
+│       接口请求处理、参数提取、断言验证的核心业务逻辑                │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                  数据层 (testdatas/ + configs/)              │
+│        测试数据管理（YAML）、环境配置管理（INI）                   │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                      工具层 (common/)                        │
+│   基础工具封装：请求、断言、日志、YAML解析、数据库连接等            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 分层职责说明
+
+#### 整个流程会分为不同的层级，每个层级之间保持相对独立：
+
+**1. testcases 测试执行逻辑层**  
+用于存放所有的测试用例类
+
+**2. configs 配置层**  
+用于存放当前框架中的所有配置信息（使用不频繁，修改不频繁的数据）
+
+**3. testdatas 测试数据层**  
+用于存放所有的测试数据，测试参数（可以使用 excel、json、yaml、数据库来存储）
+
+**4. logs 日志层**  
+用于保存运行框架过程中产生的所有有效日志信息
+
+**5. reports 报告层**  
+用于保存所有的测试报告文件（一般为 html 报告）
+
+**6. common 脚本封装层（工具层）**  
+用于保存所有的操作封装模块（yaml、excel、log、mysql、requests、参数化等）
+
+**7. run.py 用例启动文件**  
+使用套件加载用例，批量执行并生成报告
+
+---
+
+## 三、目录结构说明
+
+```
+project-root/                     # 项目根目录
+│
+├─ base/                          # 【逻辑层】接口请求处理核心逻辑
+│  ├─ apiutil.py                  # 单接口测试请求处理类
+│  ├─ apiutil_business.py         # 业务场景测试请求处理类
+│  └─ generateId.py               # 测试模块和用例ID生成器
+│
+├─ common/                        # 【工具层】基础工具封装
+│  ├─ assertions.py               # 断言处理模块（相等、包含、数据库断言）
+│  ├─ connection.py               # 数据库连接工具（MySQL/Redis/ClickHouse/MongoDB）
+│  ├─ readyaml.py                 # YAML 数据解析与读写工具
+│  ├─ recordlog.py                # 日志处理工具
+│  └─ sendrequest.py              # HTTP 请求封装（基于 requests 库）
+│
+├─ conf/                          # 【配置层】全局配置管理
+│  ├─ config.ini                  # 环境配置文件（API地址、数据库配置等）
+│  ├─ operationConfig.py          # 配置文件读取工具
+│  └─ setting.py                  # 全局设置文件
+│
+├─ data/                          # 【数据层】测试数据存储
+│  ├─ loginName.yaml              # 登录接口测试数据
+│  └─ ...                         # 其他接口测试数据文件
+│
+├─ logs/                          # 【日志层】测试日志存储（自动生成）
+│  └─ test_YYYYMMDD.log           # 按日期命名的日志文件
+│
+├─ report/                        # 【报告层】测试报告存储
+│  ├─ temp/                       # Allure 原始数据
+│  └─ allureReport/               # Allure HTML 报告
+│
+├─ testcase/                      # 【用例层】测试用例执行
+│  ├─ Single interface/           # 单接口测试用例
+│  │  └─ test_debug_api.py        # 用户管理接口测试类
+│  │
+│  ├─ Business interface/         # 业务场景测试用例
+│  │  └─ test_business_scenario.py # 业务流程测试类
+│  │
+│  └─ conftest.py                 # 【Fixture配置层】pytest fixture 配置
+│
+├─ conftest.py                    # 【Fixture配置层】pytest 全局钩子文件
+├─ environment.xml                # Allure 报告环境信息
+├─ extract.yaml                   # 接口依赖参数存储文件
+├─ pytest.ini                     # pytest 配置文件
+├─ requirements.txt               # 第三方库依赖清单
+└─ run.py                         # 【启动层】主程序入口
 ```
 
 ---
 
-## 🏗️ 项目架构
+## 四、核心代码详解
 
-### 目录结构
+本章节按照框架分层架构，从底层到顶层逐层介绍核心代码实现。
 
-```plaintext
-automaticAPI/
-├── base/                       # 基础封装层
-│   ├── apiutil.py             # 单接口用例处理(驱动层)
-│   └── generateId.py          # 报告ID生成器
-│
-├── common/                     # 公共方法层
-│   ├── sendrequest.py         # HTTP请求统一封装
-│   ├── assertions.py          # 断言引擎
-│   ├── debugtalk.py           # 动态参数辅助函数
-│   ├── readyaml.py            # YAML数据读取
-│   └── recordlog.py           # 日志记录
-│
-├── conf/                       # 配置管理
-│   ├── config.ini             # 环境配置(host/数据库)
-│   └── operationConfig.py     # 配置读取工具
-│
-├── data/                       # 数据存储
-│   └── extract.yaml           # 接口参数提取存储
-│
-├── testcase/                   # 测试用例层
-│   ├── Single interface/      # 单接口测试用例
-│   │   ├── addUser.yaml       # 新增用户
-│   │   ├── updateUser.yaml    # 修改用户
-│   │   ├── deleteUser.yaml    # 删除用户
-│   │   └── queryUser.yaml     # 查询用户
-│   │
-│   └── ProductManager/        # 商品管理用例
-│       ├── getProductList.yaml # 商品列表
-│       ├── commitOrder.yaml    # 提交订单
-│       └── orderPay.yaml       # 订单支付
-│
-├── logs/                       # 测试日志
-├── report/                     # 测试报告
-│   ├── temp/                  # Allure原始数据
-│   └── html/                  # HTML报告
-│
-├── test_debug_api.py          # 用户管理测试入口
-├── test_productList.py        # 商品管理测试入口
-├── conftest.py                # Pytest全局配置
-├── pytest.ini                 # Pytest配置文件
-└── requirements.txt           # 项目依赖
+### 4.1 工具层（common/）
+
+工具层是框架的最底层，提供各种基础工具的封装，供上层调用。
+
+#### 4.1.1 HTTP 请求封装 `sendrequest.py`
+
+**代码示例：**
+
+```python
+class SendRequest:
+    """HTTP 请求封装类，基于 requests 库"""
+    
+    def send_request(self, method, url, **kwargs):
+        """
+        统一的请求发送方法
+        :param method: 请求方法（GET/POST/PUT/DELETE等）
+        :param url: 请求地址
+        :param kwargs: 其他请求参数（headers、data、json、params、files等）
+        :return: Response 对象
+        """
+        try:
+            method = method.upper()
+            if method == 'GET':
+                result = requests.get(url, **kwargs)
+            elif method == 'POST':
+                result = requests.post(url, **kwargs)
+            elif method == 'PUT':
+                result = requests.put(url, **kwargs)
+            elif method == 'DELETE':
+                result = requests.delete(url, **kwargs)
+            return result
+        except Exception as e:
+            logs.error(e)
+            pytest.fail("请求异常，请检查系统或数据是否正常！")
+    
+    def run_main(self, name, url, case_name, header, method, cookies=None, file=None, **kwargs):
+        """
+        接口请求主方法，添加日志记录和 Allure 报告信息
+        """
+        # 记录请求信息
+        logs.info('接口名称：%s' % name)
+        logs.info('请求地址：%s' % url)
+        logs.info('请求方式：%s' % method)
+        logs.info('测试用例名称：%s' % case_name)
+        logs.info('请求头：%s' % header)
+        logs.info('Cookie：%s' % cookies)
+        
+        # 处理请求参数并记录
+        if "data" in kwargs.keys():
+            allure.attach(json.dumps(kwargs, ensure_ascii=False), '请求参数', allure.attachment_type.TEXT)
+            logs.info("请求参数：%s" % kwargs)
+        elif "json" in kwargs.keys():
+            allure.attach(json.dumps(kwargs, ensure_ascii=False), '请求参数', allure.attachment_type.TEXT)
+            logs.info("请求参数：%s" % kwargs)
+        elif "params" in kwargs.keys():
+            allure.attach(json.dumps(kwargs, ensure_ascii=False), '请求参数', allure.attachment_type.TEXT)
+            logs.info("请求参数：%s" % kwargs)
+        
+        # 发送请求
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+        response = self.send_request(method=method, url=url, headers=header, 
+                                    cookies=cookies, files=file, 
+                                    timeout=setting.API_TIMEOUT, verify=False, **kwargs)
+        return response
 ```
 
-### POM架构设计
-
-**架构流程:**
-
-```
-测试用例层 (test_*.py)
-    ↓ 调用
-驱动层 (RequestBase)
-    ↓ 读取
-数据层 (YAML配置)
-    ↓ 动态替换
-辅助函数 (DebugTalk)
-    ↓ 发送请求
-请求封装 (SendRequest)
-    ↓ HTTP请求
-服务器接口
-    ↓ 响应处理
-结果处理
-    ├─ 参数提取 → extract.yaml
-    └─ 断言验证 → Assertions
-           ↓
-    Allure测试报告
-```
-
-**三层架构说明:**
-
-| 层级 | 文件/类 | 职责 | 优势 |
-|-----|---------|------|------|
-| **用例层** | test_debug_api.py<br/>test_productList.py | 定义测试场景和执行流程 | 专注业务逻辑,易于维护 |
-| **驱动层** | apiutil.py<br/>RequestBase类 | 封装请求、断言、参数替换 | 统一处理,代码复用 |
-| **数据层** | addUser.yaml<br/>commitOrder.yaml | 存储接口配置和测试数据 | 用例与数据分离,易扩展 |
+**代码说明：**
+- `send_request()` 方法：根据 method 类型选择对应的 requests 方法发送请求
+- `run_main()` 方法：在发送请求前后添加日志记录和 Allure 报告信息
+- 支持多种请求参数类型：data、json、params、files
+- 统一的异常处理机制，请求失败时通过 pytest.fail() 标记用例失败
 
 ---
 
-## ⚙️ 环境配置
+#### 4.1.2 断言处理封装 `assertions.py`
 
-### 1. 依赖安装
+框架支持多种断言模式，满足不同测试场景的需求。
 
-```bash
-pip install -r requirements.txt
+**1. 相等断言 `equal_assert()`**
+
+```python
+def equal_assert(self, expected_results, actual_results, status_code=None):
+    """
+    相等断言模式：验证实际结果与预期结果是否完全相等
+    :param expected_results: 预期结果（字典类型）
+    :param actual_results: 实际结果（字典类型）
+    :return: 0表示成功，1表示失败
+    """
+    flag = 0
+    if isinstance(actual_results, dict) and isinstance(expected_results, dict):
+        # 找出实际结果与预期结果共同的 key
+        common_keys = list(expected_results.keys() & actual_results.keys())[0]
+        # 根据相同的 key 去实际结果中获取，并重新生成一个实际结果的字典
+        new_actual_results = {common_keys: actual_results[common_keys]}
+        # 使用 operator.eq 进行深度比较
+        eq_assert = operator.eq(new_actual_results, expected_results)
+        
+        if eq_assert:
+            logs.info(f"相等断言成功：接口实际结果：{new_actual_results}，等于预期结果：{expected_results}")
+            allure.attach(f"预期结果：{expected_results}\n实际结果：{new_actual_results}", 
+                         '相等断言结果：成功', attachment_type=allure.attachment_type.TEXT)
+        else:
+            flag += 1
+            logs.error(f"相等断言失败：接口实际结果{new_actual_results}，不等于预期结果：{expected_results}")
+            allure.attach(f"预期结果：{expected_results}\n实际结果：{new_actual_results}", 
+                         '相等断言结果：失败', attachment_type=allure.attachment_type.TEXT)
+    else:
+        raise TypeError('相等断言--类型错误，预期结果和接口实际响应结果必须为字典类型！')
+    
+    return flag
 ```
 
-### 2. 核心依赖清单
+**方法说明：**
 
-核心依赖包:
+**功能描述**
 
-- **pytest** - 测试框架
-- **allure-pytest** - 报告生成
-- **requests** - HTTP请求
-- **PyYAML** - YAML解析
-- **jsonpath** - JSON提取
-- **PyMySQL** - MySQL操作
-- **SQLAlchemy** - ORM框架
-- **faker** - 测试数据生成
+该方法用于实现**相等断言（Equal Assertion）**，即验证接口返回的实际结果中某个字段的值是否**完全等于**预期值。
 
-### 3. Pytest配置
+通过对比两个字典对象（实际结果与预期结果）中的指定字段内容，判断其是否完全一致。
 
-```ini
-[pytest]
-python_files = test_*.py
-python_classes = Test*
-python_functions = test
+**示例场景**
+- 验证接口返回的 `code` 是否为 `200`
+- 验证响应中的 `user.id` 是否等于预期值
+- 验证嵌套结构中的某个字段是否完全匹配预期值
+
+**参数说明**
+
+| 参数名 | 类型 | 描述 |
+|--------|------|------|
+| `expected_results` | dict | 预期结果，通常来自 YAML 文件中的 validation 字段，例如：`{"code": 200}` |
+| `actual_results` | dict | 接口实际返回的 JSON 响应体 |
+| `status_code` | int（可选） | HTTP 状态码（当前未使用） |
+
+**返回值说明**
+- 返回一个整数类型 `flag`：
+  - `0` 表示断言成功
+  - `1` 表示断言失败
+
+**执行逻辑详解**
+
+1. **初始化标志位**：`flag = 0` 默认表示所有断言通过
+
+2. **类型校验**：如果传入的 `actual_results` 和 `expected_results` 不是字典类型，则抛出异常
+
+3. **获取公共 key（要比较的字段）**：使用集合运算符 `&` 找出两个字典共有的 key，取第一个作为比较字段
+
+4. **构造新的实际结果字典**：从实际响应中提取对应字段的值，构造一个新的字典
+
+5. **使用 `operator.eq` 进行深度比较**：
+   - `operator.eq()` 是 Python 的深度比较函数，可以比较复杂数据结构（如嵌套字典、列表等）是否完全相同
+   - 相比 `==` 更加严格和可靠
+
+6. **成功/失败处理**：
+   - 成功时：记录日志并附加到 Allure 报告中
+   - 失败时：标记失败，记录错误日志，并将断言信息附加到报告中
+
+---
+
+**2. 包含断言 `contains_assert()`**
+
+```python
+def contains_assert(self, value, response, status_code):
+    """
+    字符串包含断言模式，断言预期结果的字符串是否包含在接口的响应信息中
+    :param value: 预期结果，yaml文件的预期结果值
+    :param response: 接口实际响应结果
+    :param status_code: 响应状态码
+    :return: 返回结果的状态标识
+    """
+    flag = 0
+    for assert_key, assert_value in value.items():
+        if assert_key == "status_code":
+            if assert_value != status_code:
+                flag += 1
+                allure.attach(f"预期结果：{assert_value}\n实际结果：{status_code}", 
+                             '响应代码断言结果:失败', attachment_type=allure.attachment_type.TEXT)
+                logs.error("contains断言失败：接口返回码【%s】不等于【%s】" % (status_code, assert_value))
+        else:
+            # 使用 JSONPath 提取响应中的字段
+            resp_list = jsonpath.jsonpath(response, "$..%s" % assert_key)
+            if isinstance(resp_list[0], str):
+                resp_list = ''.join(resp_list)
+            if resp_list:
+                # 支持将字符串 'NONE' 转换为 Python 的 None
+                assert_value = None if assert_value.upper() == 'NONE' else assert_value
+                if assert_value in resp_list:
+                    logs.info("字符串包含断言成功：预期结果【%s】,实际结果【%s】" % (assert_value, resp_list))
+                else:
+                    flag = flag + 1
+                    allure.attach(f"预期结果：{assert_value}\n实际结果：{resp_list}", 
+                                 '响应文本断言结果：失败', attachment_type=allure.attachment_type.TEXT)
+                    logs.error("响应文本断言失败：预期结果为【%s】,实际结果为【%s】" % (assert_value, resp_list))
+    return flag
 ```
 
-### 4. 环境配置
+**方法说明**
+
+该方法用于实现**字符串包含断言（Contains Assertion）**，即验证接口响应中是否**包含**预期的关键字段和值。支持对状态码和 JSON 响应内容进行断言。
+
+**示例场景**
+- 验证返回的 `msg` 是否包含 `"登录成功"`
+- 验证 HTTP 状态码是否为 `200`
+- 验证响应中的某个字段是否包含指定值
+
+**参数说明**
+
+| 参数名 | 类型 | 描述 |
+|--------|------|------|
+| `value` | dict | 从 YAML 文件中读取的断言规则，例如 `{ "code": 200, "msg": "登录成功" }` |
+| `response` | dict | 接口实际返回的 JSON 响应体 |
+| `status_code` | int | 接口返回的 HTTP 状态码 |
+
+**返回值说明**
+- 返回一个整数类型 `flag`：
+  - `0` 表示所有断言通过
+  - 大于 `0` 表示有断言失败，数值表示失败次数
+
+**执行逻辑详解**
+
+1. **初始化标志位**：`flag = 0` 默认表示所有断言通过
+
+2. **遍历断言字典**：遍历传入的 `value` 字典，获取每个断言字段及其预期值
+
+3. **判断是否为状态码断言**：
+   - 如果是 `"status_code"`，则比较预期值与实际状态码
+   - 不相等时标记失败，并记录日志和报告信息
+
+4. **否则进行响应内容断言（JSONPath 提取 + 包含判断）**：
+   - 使用 `jsonpath.jsonpath()` 从响应数据中提取所有名为 `assert_key` 的字段值
+   - 对结果做类型处理（如果提取到的是字符串列表，合并成单个字符串）
+   - 判断是否为空值（支持将字符串 `'NONE'` 转换为 Python 的 `None`）
+   - 实际断言逻辑：如果预期值存在于响应字段中，则断言成功；否则标记失败
+
+**示例说明**
+
+假设接口响应：
+```json
+{
+  "code": 200,
+  "data": {
+    "msg": "登录成功"
+  }
+}
+```
+
+YAML 配置：
+```yaml
+validation:
+  - contains:
+      status_code: 200
+      msg: 登录成功
+```
+
+经过 `contains_assert` 处理后：
+- 首先验证 `status_code` 是否为 200
+- 然后使用 JSONPath `$..msg` 提取 `"登录成功"`
+- 验证 `"登录成功"` 是否包含在提取结果中
+- 断言成功
+
+---
+
+**3. 断言结果统一处理 `assert_result()`**
+
+```python
+def assert_result(self, validation, response, status_code):
+    """
+    断言结果统一处理入口
+    :param validation: 断言规则列表
+    :param response: 接口响应
+    :param status_code: HTTP 状态码
+    """
+    logs.info(f"yaml文件预期结果：{validation}")
+    flag_total = 0
+    
+    for val in validation:
+        for key, value in val.items():
+            if key == 'eq':
+                flag_total += self.equal_assert(value, response, status_code)
+            elif key == 'contains':
+                flag_total += self.contains_assert(value, response, status_code)
+            elif key == 'not_eq':
+                flag_total += self.not_equal_assert(value, response, status_code)
+    
+    if flag_total != 0:
+        logs.error('测试失败')
+        pytest.fail('断言失败，测试不通过')
+    else:
+        logs.info('测试成功')
+```
+
+**代码说明：**
+- 支持多种断言模式：`eq`（相等）、`contains`（包含）、`not_eq`（不相等）
+- 使用 `operator.eq` 进行深度比较，支持嵌套字典和列表
+- 使用 JSONPath 提取响应中的字段值
+- 断言失败时通过 `pytest.fail()` 标记用例失败
+
+---
+
+#### 4.1.3 YAML 数据解析 `readyaml.py`
+
+```python
+class ReadYamlData:
+    """YAML 文件读写操作封装"""
+    
+    def __init__(self, yaml_file=None):
+        if yaml_file is None:
+            self.yaml_file = setting.FILE_PATH['EXTRACT_YAML']
+        else:
+            self.yaml_file = yaml_file
+    
+    def read_yaml_data(self):
+        """读取 YAML 文件数据"""
+        with open(self.yaml_file, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+        return data
+    
+    def write_yaml_data(self, data):
+        """写入数据到 YAML 文件"""
+        with open(self.yaml_file, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, allow_unicode=True)
+    
+    def clear_yaml_data(self):
+        """清空 YAML 文件数据"""
+        with open(self.yaml_file, 'w', encoding='utf-8') as f:
+            f.truncate()
+
+
+def get_testcase_yaml(yaml_path):
+    """
+    读取测试用例 YAML 文件，返回参数化数据
+    :param yaml_path: YAML 文件路径
+    :return: 参数化数据列表
+    """
+    with open(yaml_path, 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f)
+    
+    base_info = data.get('baseInfo')
+    test_cases = data.get('testCase', [])
+    
+    # 返回格式：[(base_info, testcase1), (base_info, testcase2), ...]
+    return [(base_info, tc) for tc in test_cases]
+```
+
+**代码说明：**
+- `ReadYamlData` 类：用于操作 extract.yaml 文件，存储接口依赖参数
+- `get_testcase_yaml()` 函数：读取测试用例 YAML 文件，返回参数化格式的数据
+- 支持读取、写入、清空操作
+
+---
+
+#### 4.1.4 日志记录封装 `recordlog.py`
+
+```python
+import logging
+from conf import setting
+
+class Logger:
+    """日志记录类"""
+    
+    def __init__(self):
+        self.logger = logging.getLogger('test_logger')
+        self.logger.setLevel(logging.INFO)
+        
+        # 文件处理器
+        fh = logging.FileHandler(setting.LOG_FILE, encoding='utf-8')
+        fh.setLevel(logging.INFO)
+        
+        # 控制台处理器
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.INFO)
+        
+        # 日志格式
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        fh.setFormatter(formatter)
+        ch.setFormatter(formatter)
+        
+        self.logger.addHandler(fh)
+        self.logger.addHandler(ch)
+    
+    def info(self, msg):
+        self.logger.info(msg)
+    
+    def error(self, msg):
+        self.logger.error(msg)
+
+logs = Logger()
+```
+
+**代码说明：**
+- 同时输出到文件和控制台
+- 日志文件按日期命名
+- 统一的日志格式
+
+---
+
+### 4.2 数据层（data/ + conf/）
+
+数据层负责管理测试数据和配置信息。
+
+#### 4.2.1 测试数据格式（YAML）
+
+**单接口测试数据示例（addUser.yaml）：**
+
+```yaml
+baseInfo:
+  api_name: 新增用户
+  url: /user/addUser
+  method: POST
+  header:
+    Content-Type: application/x-www-form-urlencoded;charset=UTF-8
+
+testCase:
+  - case_name: 正常新增用户
+    data:
+      username: testuser01
+      password: test123456
+      role_id: 123456
+      phone: 13800000000
+    validation:
+      - contains:
+          status_code: 200
+      - contains:
+          msg: 新增成功
+    extract:
+      user_id: $.data.user_id
+  
+  - case_name: 无效新增·缺少必填参数username
+    data:
+      password: test123456
+      role_id: 123456
+      phone: 13800000000
+    validation:
+      - contains:
+          msg: 新增失败
+```
+
+**业务场景测试数据示例（BusinessScenario.yml）：**
+
+```yaml
+- baseInfo:
+    api_name: 用户登录
+    url: /user/login
+    method: post
+    header:
+      Content-Type: application/x-www-form-urlencoded;charset=UTF-8
+  testCase:
+    - case_name: 用户名和密码正确登录验证
+      data:
+        user_name: test01
+        passwd: admin123
+      validation:
+        - contains:
+            error_code: 'none'
+        - eq:
+            msg: 登录成功
+      extract:
+        token: $.token
+
+- baseInfo:
+    api_name: 获取商品列表
+    url: /goods/list
+    method: GET
+    header:
+      Content-Type: application/x-www-form-urlencoded;charset=UTF-8
+      token: ${token}
+  testCase:
+    - case_name: 获取商品列表
+      params:
+        page: 1
+        size: 20
+      validation:
+        - eq:
+            error_code: '0000'
+```
+
+**YAML 数据结构说明：**
+
+| 字段 | 说明 |
+|------|------|
+| `baseInfo` | 接口基本信息 |
+| `api_name` | 接口名称 |
+| `url` | 接口路径（不含域名） |
+| `method` | 请求方法 |
+| `header` | 请求头 |
+| `testCase` | 测试用例列表 |
+| `case_name` | 用例名称 |
+| `data/json/params` | 请求参数 |
+| `validation` | 断言规则 |
+| `extract` | 参数提取规则 |
+
+---
+
+#### 4.2.2 配置文件管理（config.ini）
 
 ```ini
 [api_envi]
@@ -159,500 +643,513 @@ host = http://127.0.0.1:8787
 [MYSQL]
 host = localhost
 port = 3306
-username = root
-password = 12345
-database = testdb
+user = root
+password = 123456
+database = test_db
+
+[REPORT_TYPE]
+type = allure
+```
+
+**配置读取工具（operationConfig.py）：**
+
+```python
+class OperationConfig:
+    """配置文件读取类"""
+    
+    def __init__(self, filepath=None):
+        if filepath is None:
+            self.__filepath = setting.FILE_PATH['CONFIG']
+        else:
+            self.__filepath = filepath
+        
+        self.conf = configparser.ConfigParser()
+        self.conf.read(self.__filepath, encoding='utf-8')
+    
+    def get_section_for_data(self, section, option):
+        """
+        读取配置项的值
+        :param section: ini文件头部值
+        :param option: 头部值下面的选项
+        :return: 配置值
+        """
+        try:
+            values = self.conf.get(section, option)
+            return values
+        except Exception as e:
+            logs.error(f"读取配置失败: {e}")
+            return ''
 ```
 
 ---
 
-## 🔧 核心功能实现
+### 4.3 逻辑层（base/）
 
-### 1. YAML数据驱动
+逻辑层是框架的核心，负责处理接口请求、参数替换、参数提取、断言验证等核心业务逻辑。
 
-#### 用例模板结构
+#### 4.3.1 接口请求处理核心方法 `specification_yaml()`
 
-```yaml
-- baseInfo:                           # 接口基础信息
-    api_name: 接口名称
-    url: /api/path
-    method: POST                      # 请求方法
-    header:                           # 请求头
-      Content-Type: application/json
-  
-  testCase:                           # 测试用例列表
-    - case_name: 用例名称
-      json:                           # 请求体(JSON格式)
-        param1: value1
-        param2: ${get_extract_data(token)}  # 动态参数
-      
-      validation:                     # 断言配置
-        - contains: {'status_code': 200}
-        - eq: {'error_code': '0000'}
-      
-      extract:                        # 参数提取
-        userId: $.data.userId
-```
-
-#### 实战案例1: 用户管理
-
-```yaml
-- baseInfo:
-    api_name: 新增用户
-    url: /dar/user/addUser
-    method: POST
-    header:
-      Content-Type: application/x-www-form-urlencoded;charset=UTF-8
-  
-  testCase:
-    - case_name: 正常新增用户
-      data:
-        username: testadduser
-        password: tset6789890
-        role_id: 123456789
-        dates: '2023-12-31'
-        phone: 13800000000
-        token: ${get_extract_data(token)}    # 依赖登录接口返回的token
-      validation:
-        - contains: {'status_code': 200}
-        - contains: {'msg': '新增成功'}
-    
-    - case_name: 无效新增·缺少token
-      data:
-        username: testadduser
-        password: tset6789890
-        role_id: 123456789
-        token:                                # token为空
-      validation:
-        - contains: {'msg': '新增失败'}
-    
-    - case_name: 无效新增·缺少必填参数
-      data:
-        password: tset6789890
-        role_id: 123456789
-        # 缺少username参数
-      validation:
-        - contains: {'msg': '新增失败'}
-```
-
-#### 实战案例2: 电商下单流程
-
-```yaml
-- baseInfo:
-    api_name: 提交订单
-    url: /coupApply/cms/placeAnOrder
-    method: post
-    header:
-      Content-Type: application/json;charset=UTF-8
-  
-  testCase:
-    - case_name: 提交订单
-      json:
-        goods_id: ${get_extract_data(goodsId,0)}      # 从商品列表提取
-        number: 2
-        propertyChildIds: '2:9'
-        price: '128'
-        consignee_info: 
-          name: "张三"
-          phone: 13800000000
-          address: "北京市海淀区西三环北路74号"
-      
-      validation:
-        - eq: {'message': '提交订单成功'}
-        - eq: {'error_code': '0000'}
-      
-      extract:                                        # 提取订单号供支付接口使用
-        orderNumber: $.orderNumber
-        userId: $.userId
-```
-
-```yaml
-- baseInfo:
-    api_name: 订单支付
-    url: /coupApply/cms/orderPay
-    method: post
-  
-  testCase:
-    - case_name: 订单支付
-      json:
-        orderNumber: ${get_extract_data(orderNumber)}  # 依赖提交订单返回的订单号
-        userId: ${get_extract_data(userId)}
-        timeStamp: ${timestamp()}                      # 动态时间戳
-      
-      validation:
-        - contains: {'message': '订单支付成功'}
-        - contains: {'error_code': '0000'}
-```
-
----
-
-### 2. 接口参数关联
-
-#### 参数提取机制
-
-**支持两种提取方式:**
-
-```yaml
-# 方式1: JSONPath提取(推荐)
-extract:
-  token: $.data.token                    # 提取单个值
-  userId: $.data.user.id
-
-# 方式2: 正则表达式提取
-extract:
-  token: '"token": "(.*?)"'              # 正则匹配
-
-# 方式3: 列表数据提取
-extract_list:
-  goodsIds: $.goodsList[*].goodsId       # 提取所有商品ID
-```
-
-#### 参数使用
-
-```yaml
-# 在后续接口中使用提取的参数
-json:
-  token: ${get_extract_data(token)}           # 获取单个值
-  goods_id: ${get_extract_data(goodsIds,0)}   # 获取列表第0个元素
-```
-
-#### 核心代码实现
+**单接口测试逻辑（base/apiutil.py）：**
 
 ```python
 class RequestBase:
-    """请求基础类 - 驱动层核心"""
+    """接口请求处理基类"""
     
-    def extract_data(self, testcase_extract, response):
+    def __init__(self):
+        self.run = SendRequest()
+        self.conf = OperationConfig()
+        self.asserts = Assertions()
+        self.yaml_data = ReadYamlData()
+    
+    def replace_load(self, data):
         """
-        提取接口响应参数并存储到extract.yaml
+        替换 YAML 数据中的变量引用
+        支持格式：${变量名}
+        """
+        if data is None:
+            return None
         
-        Args:
-            testcase_extract: YAML中的extract配置
-            response: 接口响应文本
+        str_data = json.dumps(data, ensure_ascii=False)
+        
+        # 读取 extract.yaml 中存储的参数
+        extract_data = self.yaml_data.read_yaml_data()
+        
+        if extract_data:
+            for key, value in extract_data.items():
+                # 替换 ${key} 为实际值
+                str_data = str_data.replace(f'${{{key}}}', str(value))
+        
+        # 转回原数据类型
+        if isinstance(data, dict):
+            data = json.loads(str_data)
+        else:
+            data = str_data
+        
+        return data
+    
+    def specification_yaml(self, base_info, test_case):
         """
+        接口请求处理核心方法
+        :param base_info: YAML 文件中的 baseInfo
+        :param test_case: YAML 文件中的 testCase
+        """
+        try:
+            params_type = ['data', 'json', 'params']
+            
+            # 1. 获取接口基本信息
+            url_host = self.conf.get_section_for_data('api_envi', 'host')
+            api_name = base_info['api_name']
+            url = url_host + base_info['url']
+            method = base_info['method']
+            header = self.replace_load(base_info['header'])
+            
+            # 添加 Allure 报告信息
+            allure.attach(api_name, f'接口名称：{api_name}', allure.attachment_type.TEXT)
+            allure.attach(api_name, f'接口地址：{url}', allure.attachment_type.TEXT)
+            allure.attach(api_name, f'请求方法：{method}', allure.attachment_type.TEXT)
+            allure.attach(api_name, f'请求头：{header}', allure.attachment_type.TEXT)
+            
+            # 2. 处理 Cookie
+            cookie = None
+            if base_info.get('cookies') is not None:
+                cookie = eval(self.replace_load(base_info['cookies']))
+            
+            # 3. 获取用例名称
+            case_name = test_case.pop('case_name')
+            allure.attach(api_name, f'测试用例名称：{case_name}', allure.attachment_type.TEXT)
+            
+            # 4. 处理断言规则
+            val = self.replace_load(test_case.get('validation'))
+            test_case['validation'] = val
+            validation = eval(test_case.pop('validation'))
+            
+            # 5. 处理参数提取规则
+            extract = test_case.pop('extract', None)
+            extract_list = test_case.pop('extract_list', None)
+            
+            # 6. 处理请求参数（替换变量）
+            for key, value in test_case.items():
+                if key in params_type:
+                    test_case[key] = self.replace_load(value)
+            
+            # 7. 处理文件上传
+            file, files = test_case.pop('files', None), None
+            if file is not None:
+                for fk, fv in file.items():
+                    allure.attach(json.dumps(file), '导入文件')
+                    files = {fk: open(fv, mode='rb')}
+            
+            # 8. 发送接口请求
+            res = self.run.run_main(name=api_name, url=url, case_name=case_name, 
+                                    header=header, method=method, file=files, 
+                                    cookies=cookie, **test_case)
+            
+            status_code = res.status_code
+            allure.attach(self.allure_attach_response(res.json()), 
+                         '接口响应信息', allure.attachment_type.TEXT)
+            
+            # 9. 处理响应
+            try:
+                res_json = json.loads(res.text)
+                
+                # 提取依赖参数
+                if extract is not None:
+                    self.extract_data(extract, res.text)
+                if extract_list is not None:
+                    self.extract_data_list(extract_list, res.text)
+                
+                # 执行断言
+                self.asserts.assert_result(validation, res_json, status_code)
+                
+            except JSONDecodeError as js:
+                logs.error('系统异常或接口未请求！')
+                raise js
+            except Exception as e:
+                logs.error(e)
+                raise e
+        
+        except Exception as e:
+            raise e
+```
+
+**方法执行流程：**
+
+```
+1. 获取接口基本信息（URL、方法、请求头等）
+          ↓
+2. 处理 Cookie 和用例名称
+          ↓
+3. 处理断言规则和参数提取规则
+          ↓
+4. 替换请求参数中的变量引用（${变量名}）
+          ↓
+5. 处理文件上传（如果有）
+          ↓
+6. 发送 HTTP 请求
+          ↓
+7. 记录响应信息到 Allure 报告
+          ↓
+8. 从响应中提取依赖参数（extract）
+          ↓
+9. 执行断言验证
+          ↓
+10. 标记用例通过/失败
+```
+
+**步骤详解**
+
+**步骤 1：定义常量与基础配置**
+```python
+params_type = ['data', 'json', 'params']
+url_host = self.conf.get_section_for_data('api_envi', 'host')
+```
+- `params_type`：表示请求参数可能包含的类型字段
+- `url_host`：从配置文件中获取当前环境的主机地址
+
+**步骤 2：提取接口基本信息并添加 Allure 报告附件**
+```python
+api_name = base_info['api_name']
+allure.attach(api_name, f'接口名称：{api_name}', allure.attachment_type.TEXT)
+```
+- 从 `base_info` 中提取接口名称、URL 和请求方法
+- 使用 `allure.attach` 将这些信息附加到 Allure 报告中
+
+**步骤 3：处理请求头和 Cookie**
+```python
+header = self.replace_load(base_info['header'])
+cookie = eval(self.replace_load(base_info['cookies']))
+```
+- 调用 `replace_load` 对 header 进行变量替换
+- 如果存在 cookies，则进行替换并使用 `eval` 转换为字典格式
+
+**步骤 4：处理断言逻辑**
+```python
+val = self.replace_load(test_case.get('validation'))
+validation = eval(test_case.pop('validation'))
+```
+- 替换断言表达式中的变量
+- 使用 `eval` 执行断言表达式，生成实际断言规则
+
+**步骤 5：提取数据字段（extract / extract_list）**
+```python
+extract = test_case.pop('extract', None)
+extract_list = test_case.pop('extract_list', None)
+```
+- 从 `test_case` 中提取需要提取的字段名，供后续从响应中提取数据
+
+**步骤 6：处理请求参数（data/json/params）**
+```python
+for key, value in test_case.items():
+    if key in params_type:
+        test_case[key] = self.replace_load(value)
+```
+- 遍历所有测试用例参数，若为 `data`、`json` 或 `params` 类型，则对其值进行变量替换
+
+**步骤 7：处理文件上传**
+```python
+file, files = test_case.pop('files', None), None
+if file is not None:
+    for fk, fv in file.items():
+        files = {fk: open(fv, mode='rb')}
+```
+- 如果存在 `files` 字段，表示是文件上传接口
+- 使用 `open(..., mode='rb')` 读取文件内容
+
+**步骤 8：发送接口请求**
+```python
+res = self.run.run_main(name=api_name, url=url, case_name=case_name, 
+                        header=header, method=method, file=files, 
+                        cookies=cookie, **test_case)
+```
+- 调用 `run_main` 方法发送请求
+- 获取状态码和响应内容
+
+**步骤 9：处理响应与断言**
+```python
+res_json = json.loads(res.text)
+if extract is not None:
+    self.extract_data(extract, res.text)
+self.asserts.assert_result(validation, res_json, status_code)
+```
+- 将响应内容转为 JSON 字典
+- 若有 `extract` 或 `extract_list`，则调用对应方法提取数据
+- 使用断言方法对响应结果进行验证
+
+---
+
+#### 4.3.2 参数提取功能
+
+**JSONPath 提取方式：**
+
+```python
+def extract_data(self, testcase_extract, response):
+    """
+    从接口响应中提取参数
+    :param testcase_extract: 提取规则字典 {参数名: JSONPath表达式}
+    :param response: 接口响应文本
+    """
+    try:
+        response_dict = json.loads(response)
+        extract_dict = {}
+        
         for key, value in testcase_extract.items():
-            # JSONPath提取
-            if value.startswith('$.'):
-                ext_data = jsonpath.jsonpath(
-                    json.loads(response), value
-                )
-                if ext_data:
-                    # 存储到extract.yaml
-                    self.write_extract_yaml({key: ext_data[0]})
-                    logs.info(f"参数提取成功: {key} = {ext_data[0]}")
+            # 使用 JSONPath 提取值
+            result = jsonpath.jsonpath(response_dict, value)
             
-            # 正则表达式提取
-            else:
-                ext_list = re.search(value, response)
-                if ext_list:
-                    self.write_extract_yaml({key: ext_list.group(1)})
+            if result:
+                extract_dict[key] = result[0]
+                logs.info(f"json提取到参数：{{{key}: {result[0]}}}")
+        
+        # 写入 extract.yaml 文件
+        if extract_dict:
+            yaml_data = self.yaml_data.read_yaml_data() or {}
+            yaml_data.update(extract_dict)
+            self.yaml_data.write_yaml_data(yaml_data)
     
-    def replace_data(self, data):
-        """
-        动态替换YAML中的${函数名(参数)}格式
-        
-        示例:
-            ${get_extract_data(token)} → 从extract.yaml读取token值
-            ${timestamp()} → 生成当前时间戳
-            ${random_phone()} → 生成随机手机号
-        """
-        pattern = r'\$\{(.+?)\}'
-        
-        while re.search(pattern, str(data)):
-            res_value = re.search(pattern, str(data))
-            func_name = res_value.group(1)
-            
-            # 执行debugtalk.py中的函数
-            value = eval(func_name)
-            
-            # 替换原始数据
-            data = re.sub(pattern, str(value), str(data), count=1)
-        
-        return data
+    except Exception as e:
+        logs.error(f"参数提取失败: {e}")
 ```
 
----
-
-### 3. 多模式断言引擎
-
-#### 支持的断言类型
-
-| 断言模式 | YAML配置示例 | 说明 | 使用场景 |
-|---------|-------------|------|---------|
-| **contains** | `contains: {'msg': '成功'}` | 检查响应中是否包含某值 | 通用断言 ⭐⭐⭐⭐⭐ |
-| **eq** | `eq: {'error_code': '0000'}` | 精确匹配字段值 | 状态码/错误码验证 ⭐⭐⭐⭐ |
-| **ne** | `ne: {'status': 'failed'}` | 验证字段不等于某值 | 反向验证 ⭐⭐⭐ |
-| **db** | `db: SELECT * FROM users WHERE id=1` | 数据库数据验证 | 数据一致性检查 ⭐⭐⭐⭐ |
-
-#### 断言实现
-
-```python
-class Assertions:
-    """断言引擎"""
-    
-    def contains_assert(self, expected, response, status_code):
-        """
-        包含断言 - 检查响应中是否包含期望值
-        
-        Args:
-            expected: {'msg': '成功', 'status_code': 200}
-            response: 接口响应JSON
-            status_code: HTTP状态码
-        """
-        flag = 0  # 失败标记
-        
-        for key, value in expected.items():
-            if key == "status_code":
-                # 断言状态码
-                if value != status_code:
-                    flag += 1
-                    logs.error(f"状态码断言失败: {status_code} != {value}")
-            else:
-                # 断言响应字段
-                resp_list = jsonpath.jsonpath(response, f"$..{key}")
-                if value not in resp_list:
-                    flag += 1
-                    logs.error(f"包含断言失败: {value} 不在 {resp_list}")
-        
-        return flag
-    
-    def equal_assert(self, expected, actual, status_code=None):
-        """
-        相等断言 - 精确匹配字段值
-        
-        示例:
-            expected: {'error_code': '0000'}
-            actual: {'error_code': '0000', 'msg': '成功'}
-        """
-        flag = 0
-        common_key = list(expected.keys() & actual.keys())[0]
-        
-        if actual[common_key] == expected[common_key]:
-            logs.info(f"相等断言成功: {actual[common_key]} == {expected[common_key]}")
-        else:
-            flag += 1
-            logs.error(f"相等断言失败: {actual[common_key]} != {expected[common_key]}")
-        
-        return flag
-    
-    def assert_mysql_data(self, sql):
-        """
-        数据库断言 - 验证数据库中的数据
-        
-        Args:
-            sql: SELECT * FROM users WHERE username='testuser'
-        """
-        conn = ConnectMysql()
-        db_value = conn.query_all(sql)
-        
-        if db_value is not None:
-            logs.info(f"数据库断言成功: 查询到 {len(db_value)} 条数据")
-            return 0
-        else:
-            logs.error("数据库断言失败: 未查询到数据")
-            return 1
-```
-
-#### 断言执行流程
-
-**流程说明:**
-
-```
-接口响应
-  ↓
-解析 validation 配置
-  ↓
-遍历断言列表
-  ↓
-判断断言类型
-  ├─ contains → 包含断言
-  ├─ eq → 相等断言
-  ├─ ne → 不相等断言
-  └─ db → 数据库断言
-       ↓
-累计失败标记 flag
-  ↓
-flag == 0 ?
-  ├─ 是 → ✅ 断言成功
-  └─ 否 → ❌ 断言失败(抛出异常)
-```
-
----
-
-### 4. 动态参数处理
-
-#### 辅助函数库
-
-```python
-import time
-import random
-from faker import Faker
-
-fake = Faker('zh_CN')
-
-# === 参数提取相关 ===
-def get_extract_data(key, index=None):
-    """
-    从extract.yaml读取提取的参数
-    
-    Args:
-        key: 参数名
-        index: 列表索引(可选)
-            None - 返回单个值
-            0,1,2... - 返回列表指定位置的值
-            -1 - 返回所有值的字符串(逗号分隔)
-            -2 - 返回所有值的列表
-    
-    示例:
-        goodsIds = ['123', '456', '789']
-        get_extract_data('goodsIds', 0)  → '123'
-        get_extract_data('goodsIds', -1) → '123,456,789'
-        get_extract_data('goodsIds', -2) → ['123','456','789']
-    """
-    data = read_extract_yaml(key)
-    
-    if index is None:
-        return data
-    elif index == -1:
-        return ','.join(data)
-    elif index == -2:
-        return data
-    else:
-        return data[index]
-
-# === 时间相关 ===
-def timestamp():
-    """生成13位时间戳(毫秒)"""
-    return int(time.time() * 1000)
-
-def today_zero_stamp():
-    """获取今天零点时间戳"""
-    today = time.strftime('%Y-%m-%d', time.localtime())
-    return int(time.mktime(time.strptime(today, '%Y-%m-%d')))
-
-def get_current_time():
-    """获取当前时间字符串: 2025-10-12 15:30:00"""
-    return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-
-# === 随机数据生成 ===
-def random_phone():
-    """生成随机手机号"""
-    return fake.phone_number()
-
-def random_name():
-    """生成随机姓名"""
-    return fake.name()
-
-def random_address():
-    """生成随机地址"""
-    return fake.address()
-
-def random_email():
-    """生成随机邮箱"""
-    return fake.email()
-
-def random_id_card():
-    """生成随机身份证号"""
-    return fake.ssn()
-
-# === 字符串处理 ===
-def generate_random_str(length=8):
-    """生成指定长度的随机字符串"""
-    chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    return ''.join(random.choice(chars) for _ in range(length))
-```
-
-#### 使用示例
+**提取配置示例：**
 
 ```yaml
-testCase:
-  - case_name: 注册新用户
-    json:
-      username: ${random_name()}              # 随机姓名
-      phone: ${random_phone()}                # 随机手机号
-      email: ${random_email()}                # 随机邮箱
-      register_time: ${get_current_time()}    # 当前时间
-      timestamp: ${timestamp()}               # 时间戳
+extract:
+  token: $.data.token          # JSONPath 提取
+  user_id: $.data.user_id      # JSONPath 提取
 ```
+
+**提取的参数存储在 extract.yaml 文件中：**
+
+```yaml
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+user_id: 3818932580987349964
+```
+
+**在后续接口中使用提取的参数：**
+
+```yaml
+baseInfo:
+  api_name: 获取用户信息
+  url: /user/info
+  method: GET
+  header:
+    Content-Type: application/json
+    Authorization: Bearer ${token}    # 引用提取的 token
+
+testCase:
+  - case_name: 查询用户信息
+    params:
+      user_id: ${user_id}             # 引用提取的 user_id
+    validation:
+      - eq:
+          code: 200
+```
+
+**示例说明**
+
+假设 YAML 文件如下：
+
+```yaml
+baseInfo:
+  api_name: 登录接口
+  url: /login
+  method: POST
+  header:
+    Content-Type: application/json
+
+testCase:
+  - case_name: 正常登录
+    json:
+      username: admin
+      password: ${get_password()}
+    validation:
+      - eq:
+          code: 200
+          msg: success
+    extract:
+      token: $.data.token
+```
+
+经过 `specification_yaml` 处理后：
+
+1. `${get_password()}` 会被替换成实际密码
+2. 请求会携带正确的 JSON 数据
+3. 响应中的 `token` 会被提取保存到 extract.yaml
+4. 断言会检查是否返回预期结果
 
 ---
 
-### 5. 请求统一封装
+### 4.4 Fixture 配置层（conftest.py）
+
+Fixture 配置层负责测试前后的准备和清理工作。
+
+#### 4.4.1 全局 conftest.py
 
 ```python
-import requests
+import pytest
 import allure
+from common.readyaml import ReadYamlData
+from base.removefile import remove_file
+
+yfd = ReadYamlData()
+
+@pytest.fixture(scope="session", autouse=True)
+def clear_extract():
+    """
+    会话级别的前置处理：清空上次测试的依赖参数
+    """
+    # 禁用 HTTPS 告警
+    import warnings
+    warnings.simplefilter('ignore', ResourceWarning)
+    
+    # 清空 extract.yaml 文件
+    yfd.clear_yaml_data()
+    
+    # 清空报告临时文件
+    remove_file("./report/temp", ['json', 'txt', 'attach', 'properties'])
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    """
+    测试结束后的钩子函数：生成测试摘要
+    """
+    total = terminalreporter._numcollected
+    passed = len(terminalreporter.stats.get('passed', []))
+    failed = len(terminalreporter.stats.get('failed', []))
+    error = len(terminalreporter.stats.get('error', []))
+    skipped = len(terminalreporter.stats.get('skipped', []))
+    duration = time.time() - terminalreporter._sessionstarttime
+    
+    summary = f"""
+    自动化测试执行完成，结果如下：
+    测试用例总数：{total}
+    测试通过数：{passed}
+    测试失败数：{failed}
+    错误数量：{error}
+    跳过数量：{skipped}
+    执行总时长：{duration:.2f}秒
+    """
+    
+    print(summary)
+```
+
+#### 4.4.2 用例层 conftest.py（testcase/conftest.py）
+
+```python
+import pytest
+import allure
+from common.readyaml import get_testcase_yaml
+from base.apiutil import RequestBase
 from common.recordlog import logs
 
-class SendRequest:
-    """HTTP请求统一封装"""
+@pytest.fixture(autouse=True)
+def start_test_and_end():
+    """
+    每个测试用例的前置后置
+    """
+    logs.info('-------------接口测试开始--------------')
+    yield
+    logs.info('-------------接口测试结束--------------')
+
+
+@pytest.fixture(scope='session', autouse=True)
+@allure.story("登录")
+def system_login():
+    """
+    会话级别的登录 fixture：自动执行登录，获取 token
+    """
+    try:
+        api_info = get_testcase_yaml('./data/loginName.yaml')
+        RequestBase().specification_yaml(api_info[0][0], api_info[0][1])
+        logs.info('登录成功，token 已保存')
+    except Exception as e:
+        logs.error(f'登录接口异常，后续测试无法继续：{e}')
+        pytest.exit('登录失败，退出测试')
+
+
+@pytest.fixture(scope='session', autouse=True)
+def datadb_init():
+    """
+    会话级别的数据清理 fixture
+    测试完成后清理测试数据
+    """
+    yield
     
-    def send_request(self, **kwargs):
-        """发送HTTP请求"""
-        session = requests.session()
-        
-        try:
-            # 发送请求
-            result = session.request(**kwargs)
-            
-            # 记录日志
-            logs.info(f"响应状态码: {result.status_code}")
-            logs.info(f"响应内容: {result.text}")
-            
-            return result
-            
-        except requests.exceptions.ConnectionError:
-            logs.error("连接异常")
-            pytest.fail("接口请求失败: 连接异常")
-        except requests.exceptions.Timeout:
-            logs.error("请求超时")
-            pytest.fail("接口请求失败: 请求超时")
-    
-    def run_main(self, name, url, case_name, header, method, **kwargs):
-        """
-        请求主入口
-        
-        Args:
-            name: 接口名称
-            url: 接口地址
-            case_name: 测试用例名称
-            header: 请求头
-            method: 请求方法(GET/POST)
-            **kwargs: 请求参数(params/data/json)
-        """
-        # 日志记录
-        logs.info(f'=' * 100)
-        logs.info(f'接口名称: {name}')
-        logs.info(f'测试用例: {case_name}')
-        logs.info(f'请求地址: {url}')
-        logs.info(f'请求方式: {method}')
-        
-        # Allure报告附件
-        if "data" in kwargs or "json" in kwargs:
-            allure.attach(
-                json.dumps(kwargs, ensure_ascii=False),
-                '请求参数',
-                allure.attachment_type.TEXT
-            )
-        
-        # 发送请求
-        response = self.send_request(
-            method=method,
-            url=url,
-            headers=header,
-            timeout=30,
-            verify=False,
-            **kwargs
-        )
-        
-        return response
+    # 后置处理：清理测试数据
+    # conn = ConnectMysql()
+    # sql = "DELETE FROM sys_user WHERE login_name='test999'"
+    # conn.delete(sql)
+    # allure.attach('测试数据已清空', 'fixture后置', allure.attachment_type.TEXT)
 ```
+
+**Fixture 说明**
+
+pytest 的 fixture 机制用于实现测试的前置和后置处理，类似于 JUnit 的 @Before 和 @After。
+
+**Fixture 作用域**
+
+| 作用域 | 说明 | 使用场景 |
+|--------|------|----------|
+| `function` | 每个测试函数执行一次，一个函数或方法都会调用 | 用例级别的前置后置 |
+| `class` | 每个测试类执行一次，一个类调用一次，一个类中可以有多个方法 | 类级别的初始化 |
+| `module` | 每个 .py 文件执行一次，该文件内又有多个 function 和 class | 模块级别的准备工作 |
+| `session` | 整个测试会话执行一次，是多个文件调用一次，可以跨 .py 文件调用，每个 .py 文件就是 module，整个会话只会运行一次 | 登录、全局配置等 |
+
+**autouse 参数**
+- 默认为 false，不会自动执行，需要手动调用
+- 为 true 可以自动执行，不需要调用
+
+**yield 关键字**
+- yield 之前的代码是前置处理
+- yield 之后的代码是后置处理
 
 ---
 
-## 📝 测试用例实现
+### 4.5 用例层（testcase/）
 
-### 1. 用户管理模块
+用例层是测试用例的编写层，调用逻辑层的方法完成测试。
+
+#### 4.5.1 单接口测试用例
 
 ```python
 import allure
@@ -661,252 +1158,326 @@ from common.readyaml import get_testcase_yaml
 from base.apiutil import RequestBase
 from base.generateId import m_id, c_id
 
-@allure.feature(next(m_id) + '用户管理模块')
+@allure.feature(next(m_id) + '用户管理模块（单接口）')
 class TestUserManager:
     
     @allure.story(next(c_id) + "新增用户")
     @pytest.mark.run(order=1)
     @pytest.mark.parametrize('base_info,testcase', 
-        get_testcase_yaml("./testcase/Single interface/addUser.yaml"))
+                             get_testcase_yaml("./testcase/Single interface/addUser.yaml"))
     def test_add_user(self, base_info, testcase):
-        """测试新增用户接口"""
+        """新增用户接口测试"""
         allure.dynamic.title(testcase['case_name'])
         RequestBase().specification_yaml(base_info, testcase)
     
     @allure.story(next(c_id) + "修改用户")
     @pytest.mark.run(order=2)
-    @pytest.mark.parametrize('base_info,testcase',
-        get_testcase_yaml("./testcase/Single interface/updateUser.yaml"))
+    @pytest.mark.parametrize('base_info,testcase', 
+                             get_testcase_yaml("./testcase/Single interface/updateUser.yaml"))
     def test_update_user(self, base_info, testcase):
-        """测试修改用户接口"""
+        """修改用户接口测试"""
         allure.dynamic.title(testcase['case_name'])
         RequestBase().specification_yaml(base_info, testcase)
     
     @allure.story(next(c_id) + "删除用户")
     @pytest.mark.run(order=3)
-    @pytest.mark.parametrize('base_info,testcase',
-        get_testcase_yaml("./testcase/Single interface/deleteUser.yaml"))
+    @pytest.mark.parametrize('base_info,testcase', 
+                             get_testcase_yaml("./testcase/Single interface/deleteUser.yaml"))
     def test_delete_user(self, base_info, testcase):
-        """测试删除用户接口"""
+        """删除用户接口测试"""
         allure.dynamic.title(testcase['case_name'])
         RequestBase().specification_yaml(base_info, testcase)
     
     @allure.story(next(c_id) + "查询用户")
     @pytest.mark.run(order=4)
-    @pytest.mark.parametrize('base_info,testcase',
-        get_testcase_yaml("./testcase/Single interface/queryUser.yaml"))
+    @pytest.mark.parametrize('base_info,testcase', 
+                             get_testcase_yaml("./testcase/Single interface/queryUser.yaml"))
     def test_query_user(self, base_info, testcase):
-        """测试查询用户接口"""
+        """查询用户接口测试"""
         allure.dynamic.title(testcase['case_name'])
         RequestBase().specification_yaml(base_info, testcase)
 ```
 
-### 2. 商品下单全流程
+**代码说明**
+
+**`@allure.feature` 装饰器**
+
+定义测试模块，在 Allure 报告中作为一级目录（Feature 级别）。用于组织大的功能模块。
+
+**`@allure.story` 装饰器**
+
+定义测试场景，在 Allure 报告中作为二级目录（Story 级别）。用于组织具体的测试场景。
+
+**`@pytest.mark.run(order=N)` 装饰器**
+
+指定测试执行顺序。pytest 默认按照文件名和函数名的字典序执行，使用此装饰器可以自定义执行顺序。
+
+**`@pytest.mark.parametrize` 参数化装饰器**
+
+```python
+@pytest.mark.parametrize('base_info,testcase', 
+                         get_testcase_yaml("./testcase/Single interface/addUser.yaml"))
+```
+
+**作用：**
+- 实现参数化测试，即一个测试方法可以运行多组不同的输入数据
+- 每一组数据都会触发一次完整的测试执行
+
+**参数说明：**
+- `'base_info,testcase'`：表示每组测试数据包含两个变量
+  - `base_info`：接口基本信息（URL、请求方法、请求头等）
+  - `testcase`：测试用例数据（用例名称、请求参数、断言规则等）
+- `get_testcase_yaml(...)`：调用函数读取指定路径下的 YAML 文件内容，返回一个包含多个测试用例的列表
+
+**测试方法定义**
+```python
+def test_add_user(self, base_info, testcase):
+```
+- 这是一个 pytest 测试方法，每个参数化的数据都会触发一次该方法的执行
+- `self` 表示这是类中的一个实例方法（属于 `TestUserManager` 类）
+- `base_info` 和 `testcase` 是从 YAML 文件中加载的数据
+
+**动态设置 Allure 报告标题**
+```python
+allure.dynamic.title(testcase['case_name'])
+```
+- 在生成的 Allure 报告中，为当前测试用例设置一个可读性更强的标题
+- 标题内容来自于 YAML 文件中 `case_name` 字段
+
+**执行接口请求和校验**
+```python
+RequestBase().specification_yaml(base_info, testcase)
+```
+- 创建 `RequestBase` 实例，并调用其 `specification_yaml()` 方法
+- 该方法接收当前的测试用例数据，并根据其中的配置（如 URL、方法、请求头、预期结果等）发送 HTTP 请求
+- 同时会进行响应断言、日志记录等操作，完成整个接口测试流程
+
+---
+
+#### 4.5.2 业务场景测试用例
 
 ```python
 import allure
 import pytest
-from base.apiutil import RequestBase
 from common.readyaml import get_testcase_yaml
+from base.apiutil_business import RequestBase
 from base.generateId import m_id, c_id
 
-@allure.feature(next(m_id) + '商品管理模块')
-class TestProductFlow:
+
+@allure.feature(next(m_id))
+class TestEBusinessScenario:
     
-    @allure.story(next(c_id) + "获取商品列表")
-    @pytest.mark.run(order=1)
-    @pytest.mark.parametrize('base_info,testcase',
-        get_testcase_yaml('./testcase/ProductManager/getProductList.yaml'))
-    def test_get_product_list(self, base_info, testcase):
-        """
-        测试获取商品列表
-        - 提取商品ID供后续接口使用
-        """
-        allure.dynamic.title(testcase['case_name'])
-        RequestBase().specification_yaml(base_info, testcase)
-    
-    @allure.story(next(c_id) + "提交订单")
-    @pytest.mark.run(order=2)
-    @pytest.mark.parametrize('base_info,testcase',
-        get_testcase_yaml('./testcase/ProductManager/commitOrder.yaml'))
-    def test_commit_order(self, base_info, testcase):
-        """
-        测试提交订单
-        - 使用商品列表接口返回的商品ID
-        - 提取订单号供支付接口使用
-        """
-        allure.dynamic.title(testcase['case_name'])
-        RequestBase().specification_yaml(base_info, testcase)
-    
-    @allure.story(next(c_id) + "订单支付")
-    @pytest.mark.run(order=3)
-    @pytest.mark.parametrize('base_info,testcase',
-        get_testcase_yaml('./testcase/ProductManager/orderPay.yaml'))
-    def test_order_pay(self, base_info, testcase):
-        """
-        测试订单支付
-        - 使用提交订单返回的订单号
-        - 验证支付结果
-        """
-        allure.dynamic.title(testcase['case_name'])
-        RequestBase().specification_yaml(base_info, testcase)
+    @allure.story(next(c_id) + '商品列表到下单支付流程')
+    @pytest.mark.parametrize('case_info', 
+                             get_testcase_yaml('./testcase/Business interface/BusinessScenario.yml'))
+    def test_business_scenario(self, case_info):
+        """业务场景测试：登录 -> 浏览商品 -> 提交订单 -> 支付"""
+        allure.dynamic.title(case_info['baseInfo']['api_name'])
+        RequestBase().specification_yaml(case_info)
 ```
 
-**业务流程说明:**
-```
-商品列表 → 提交订单 → 订单支付
-   ↓          ↓          ↓
-提取商品ID  提取订单号   验证支付成功
-   └──────────┴──────────┘
-       参数自动传递
-```
+**业务场景与单接口的区别：**
+- 业务场景测试使用 `apiutil_business.py`，支持多个接口按顺序执行
+- 单个 `case_info` 参数包含完整的业务流程数据
+- 支持接口间的数据依赖和参数传递
 
 ---
 
-## 📊 测试执行与报告
+### 4.6 启动层（run.py）
 
-### 1. 执行测试
+```python
+import shutil
+import pytest
+import os
+from conf.setting import REPORT_TYPE
 
-```bash
-# 执行所有测试
-pytest testcase/ -vs
-
-# 生成Allure报告
-pytest testcase/ -vs --alluredir ./report/temp
-
-# 查看Allure报告
-allure serve ./report/temp
+if __name__ == '__main__':
+    if REPORT_TYPE == 'allure':
+        # 执行测试并生成 Allure 原始数据
+        pytest.main([
+            '-s',                              # 输出打印信息
+            '-v',                              # 显示详细信息
+            '--alluredir=./report/temp',       # Allure 数据目录
+            './testcase',                      # 测试用例目录
+            '--clean-alluredir',               # 清空旧数据
+            '--junitxml=./report/results.xml'  # 生成 JUnit XML
+        ])
+        
+        # 复制环境信息文件
+        shutil.copy('./environment.xml', './report/temp')
+        
+        # 启动 Allure 服务并打开报告
+        os.system('allure serve ./report/temp')
 ```
 
-### 2. Allure报告展示
+**代码说明**
 
-#### 报告概览
+**主程序入口**
+```python
+if __name__ == '__main__':
 ```
-✅ 通过: 45
-❌ 失败: 3
-⚠️  跳过: 2
-总计: 50
-通过率: 90%
-执行时长: 2.3分钟
+- Python 标准写法，表示当脚本作为主程序运行时才执行以下代码块
+- 防止模块被其他脚本导入时意外执行测试逻辑
+
+**Allure 报告处理逻辑**
+```python
+if REPORT_TYPE == 'allure':
+    pytest.main(['-s', '-v', '--alluredir=./report/temp', './testcase', 
+                 '--clean-alluredir', '--junitxml=./report/results.xml'])
 ```
 
-#### 报告特性
+**pytest 参数说明：**
 
-| 特性 | 说明 |
+| 参数 | 含义 |
 |------|------|
-| **测试套件分类** | 按模块展示用例(用户管理/商品管理) |
-| **用例详情** | 显示请求参数、响应结果、断言信息 |
-| **失败分析** | 详细的失败原因和堆栈信息 |
-| **趋势图表** | 多次执行的通过率趋势 |
-| **日志附件** | 请求日志、响应日志可直接查看 |
+| `-s` | 输出所有打印信息（不屏蔽 stdout） |
+| `-v` | 显示详细测试结果 |
+| `--alluredir=./report/temp` | 将 Allure 报告数据保存到指定目录 |
+| `./testcase` | 指定测试用例所在目录 |
+| `--clean-alluredir` | 在每次运行前清空之前的报告数据 |
+| `--junitxml=./report/results.xml` | 生成 JUnit XML 格式的测试结果文件 |
 
-#### 环境配置
+```python
+shutil.copy('./environment.xml', './report/temp')
+```
+- 复制环境信息文件 `environment.xml` 到报告目录
+- Allure 报告会读取此文件并显示当前测试环境信息
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<qa:environment xmlns:qa="urn:qatools:allure:environment">
-    <n>测试环境</n>
-    <value>http://127.0.0.1:8787</value>
-    
-    <n>测试人员</n>
-    <value>Your Name</value>
-    
-    <n>Python版本</n>
-    <value>3.8+</value>
-    
-    <n>项目名称</n>
-    <value>电商平台接口自动化测试</value>
-</qa:environment>
+```python
+os.system(f'allure serve ./report/temp')
+```
+- 使用 Allure CLI 命令启动本地服务器并展示生成的报告页面
+- 会在默认浏览器中自动打开报告
+
+---
+
+## 五、框架执行流程图
+
+```
+                            启动 run.py
+                                 ↓
+                    pytest.main() 执行测试用例
+                                 ↓
+              ┌─────────────────────────────────┐
+              │  全局 conftest.py              │
+              │  - 清空 extract.yaml           │
+              │  - 清理旧报告文件               │
+              └─────────────────────────────────┘
+                                 ↓
+              ┌─────────────────────────────────┐
+              │  用例层 conftest.py            │
+              │  - system_login (登录获取token) │
+              │  - start_test_and_end (前置后置) │
+              └─────────────────────────────────┘
+                                 ↓
+              ┌─────────────────────────────────┐
+              │  执行测试用例                   │
+              │  @pytest.mark.parametrize      │
+              │  从 YAML 读取测试数据           │
+              └─────────────────────────────────┘
+                                 ↓
+              ┌─────────────────────────────────┐
+              │  逻辑层 specification_yaml()   │
+              │  1. 替换变量（${token}）        │
+              │  2. 发送 HTTP 请求              │
+              │  3. 提取依赖参数到 extract.yaml │
+              │  4. 执行断言                    │
+              └─────────────────────────────────┘
+                                 ↓
+              ┌─────────────────────────────────┐
+              │  工具层                         │
+              │  - sendrequest (发送请求)       │
+              │  - assertions (断言验证)        │
+              │  - recordlog (记录日志)         │
+              └─────────────────────────────────┘
+                                 ↓
+              ┌─────────────────────────────────┐
+              │  生成测试报告                   │
+              │  - Allure 可视化报告            │
+              │  - 测试结果统计                 │
+              └─────────────────────────────────┘
 ```
 
 ---
 
-## ✨ 项目亮点总结
+## 六、项目配置文件
 
-### 1. POM设计模式
+### 6.1 pytest.ini
 
-**分层架构:**
-- **用例层** (test_*.py): 定义测试场景,专注业务逻辑
-- **驱动层** (apiutil.py): 封装请求处理、参数替换、断言逻辑
-- **数据层** (*.yaml): 存储测试数据,实现用例与数据分离
+```ini
+[pytest]
+filterwarnings =
+    error
+    ignore::UserWarning
 
-**优势:**
-- 代码复用性高,维护成本低
-- 新增用例只需编写YAML配置,无需修改代码
-- 驱动层变更不影响用例层
+python_files = test_*.py
+python_classes = Test*
+python_functions = test*
+```
 
-### 2. 数据驱动测试
-
-**实现方式:**
-- 使用 YAML 存储接口配置和测试数据
-- 使用 `@pytest.mark.parametrize` 读取YAML数据
-- 实现测试用例与测试数据的完全分离
-
-**优势:**
-- 非技术人员也能编写测试用例
-- 新增用例只需添加YAML配置
-- 测试数据可视化管理
-
-### 3. 接口参数关联
-
-**实现机制:**
-- 接口A返回数据 → 自动提取关键参数 → 存储到extract.yaml
-- 接口B使用 `${get_extract_data(key)}` 读取参数
-- 支持JSONPath、正则表达式两种提取方式
-
-**优势:**
-- 无需手动传递参数,自动关联
-- 支持复杂业务流程测试
-- 参数可追溯,便于调试
-
-### 4. 多维度断言
-
-**断言类型:**
-- **响应断言**: 验证返回数据的正确性
-- **状态码断言**: 验证HTTP状态码
-- **数据库断言**: 验证数据持久化
-
-**优势:**
-- 多维度保证接口质量
-- 发现潜在的数据不一致问题
-- 提升测试可靠性
-
-### 5. 全流程业务测试
-
-**业务场景:**
-- 用户注册 → 登录 → 获取token → 新增/修改/删除用户
-- 获取商品列表 → 提交订单 → 订单支付
-
-**优势:**
-- 验证完整业务链路
-- 发现接口间的集成问题
-- 更贴近真实用户场景
+**配置说明：**
+- `filterwarnings`：过滤警告信息
+- `python_files`：指定测试文件的命名规则
+- `python_classes`：指定测试类的命名规则
+- `python_functions`：指定测试函数的命名规则
 
 ---
 
-## 🎓 技术收获
+### 6.2 config.ini
 
-- ✅ 掌握 Pytest 测试框架的高级用法(参数化、fixture、标记)
-- ✅ 学会设计POM模式的自动化测试框架
-- ✅ 理解接口测试的核心要素(请求、断言、参数关联)
-- ✅ 掌握YAML数据驱动测试方法
-- ✅ 熟悉Allure测试报告的配置与使用
-- ✅ 了解SQLAlchemy进行数据库断言
-- ✅ 实践CI/CD集成流程(Jenkins/Linux)
+```ini
+[api_envi]
+host = http://127.0.0.1:8787
+
+[MYSQL]
+host = localhost
+port = 3306
+user = root
+password = 123456
+database = test_db
+
+[REPORT_TYPE]
+type = allure
+```
+
+**配置说明：**
+- `[api_envi]`：API 环境配置
+- `[MYSQL]`：MySQL 数据库连接配置
+- `[REPORT_TYPE]`：测试报告类型配置
 
 ---
 
-## 📚 相关资源
+## 七、项目总结
+### 框架核心优势
 
-- [Pytest 官方文档](https://docs.pytest.org/)
-- [Allure 官方文档](https://docs.qameta.io/allure/)
-- [Requests 文档](https://requests.readthedocs.io/)
-- [JSONPath 在线工具](http://www.atoolbox.net/Tool.php?Id=792)
+**1. 分层架构清晰**
+- 工具层、数据层、逻辑层、配置层、用例层各司其职
+- 层与层之间低耦合，便于维护和扩展
+
+**2. 数据驱动设计**
+- YAML 格式配置测试数据，易于管理
+- 支持接口间的参数依赖和传递
+
+**3. 高度封装**
+- 请求、断言、日志、报告一体化
+- 减少重复代码，提高开发效率
+
+**4. 可扩展性强**
+- 支持多种断言模式
+- 支持多环境配置切换
+- 易于添加新的测试用例
+
+**5. 报告美观直观**
+- Allure 可视化报告
+- 详细的用例执行步骤记录
+- 失败用例一目了然
+
+### 未来优化方向
+
+- 🔄 支持更多协议（WebSocket、gRPC）
+- 🌐 集成性能测试能力（Locust）
+- 🤖 引入 AI 辅助测试用例生成
+- 📱 支持移动端接口测试
+- 🎯 完善数据库断言功能
 
 ---
-
-<div align="center">
-
-**⭐ 如果这个项目对你有帮助,欢迎Star支持 ⭐**
-
-</div>
