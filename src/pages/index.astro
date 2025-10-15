@@ -12,9 +12,11 @@ import SkillLayout from '@/components/home/SkillLayout.astro'
 import avatar from '@/assets/lemonade.png'
 import config from '@/site-config'
 
-const languages = ['Html', 'JavaScript', 'CSS', 'Shell']
+const languages = ['Html', 'JavaScript', 'CSS', 'Shell', 'Python']
 const frontend = ['TypeScript', 'Vite', 'Webpack', 'Astro']
-const backend = ['Vercel', 'Waline']
+// const backend = ['Vercel', 'Waline']
+const tools = ['Pytest', 'Selenium', 'Charles','Postman','Docker','Linux']
+const design = ['Figma', 'Adobe Photoshop', 'Adobe Lightroom']
 
 const MAX_POSTS = 10
 const allPosts = await getBlogCollection()
@@ -120,9 +122,9 @@ const allPostsByDate = sortMDByDate(allPosts).slice(0, MAX_POSTS)
       <!-- <Section title='Education'>
         <Card
           as='a'
-          heading='Lorem ipsum'
-          subheading='Lorem ipsum dolor sit amet, vidit suscipit at mei.'
-          date='August 2021 - July 2025'
+          heading='瑞典皇家理工学院 KTH'
+          subheading='Cloud and Network Infrastructure, Master of Science'
+          date='September 2023 - Present'
           href='https://www.youtube.com/watch?v=dQw4w9WgXcQ'
         >
           {
@@ -176,11 +178,13 @@ const allPostsByDate = sortMDByDate(allPosts).slice(0, MAX_POSTS)
         />
       </Section> -->
 
-      <!-- <Section title='Skills'>
+      <Section title='Skills'>
         <SkillLayout title='Languages' skills={languages} />
         <SkillLayout title='Frontend' skills={frontend} />
-        <SkillLayout title='Backend' skills={backend} />
-      </Section> -->
+        <SkillLayout title='Tools' skills={tools} />
+        <SkillLayout title='Design' skills={design} />
+        <!-- <SkillLayout title='Backend' skills={backend} /> -->
+      </Section>
     </div>
     <Quote class='mt-12' />
   </main>
